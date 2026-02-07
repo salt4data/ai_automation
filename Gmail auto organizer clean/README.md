@@ -1,5 +1,5 @@
 # Email Organization Automation 
-# An n8n workflow that automatically classifies and organizes Gmail emails into folders.
+## An n8n workflow that automatically classifies and organizes Gmail emails into folders.
 
 
 ![image alt](https://github.com/salt4data/ai_automation/blob/main/Gmail%20auto%20organizer%20clean/gmail_automation.png)
