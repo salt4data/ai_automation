@@ -1,0 +1,915 @@
+{
+  "name": "Gmail Auto-Organizer with Smart Draft Responses",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "filters": {
+          "labelIds": [
+            "INBOX"
+          ]
+        }
+      },
+      "id": "f355df19-fff1-4bd4-8049-0fed3de642b8",
+      "name": "New Email Arrives",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -224,
+        1648
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "5xqoWy7jXH31PDlc",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "emailSubject",
+              "value": "={ $json.subject }",
+              "type": "string"
+            },
+            {
+              "id": "id-2",
+              "name": "emailFrom",
+              "value": "={ $json.from }",
+              "type": "string"
+            },
+            {
+              "id": "id-3",
+              "name": "emailBody",
+              "value": "={ $json.textPlain || $json.textHtml }",
+              "type": "string"
+            },
+            {
+              "id": "id-4",
+              "name": "emailId",
+              "value": "={ $json.id }",
+              "type": "string"
+            },
+            {
+              "id": "id-5",
+              "name": "threadId",
+              "value": "={ $json.threadId }",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "84bb7701-5703-47bd-adf6-7056a0b2c4ed",
+      "name": "Workflow Configuration",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        192,
+        1648
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Email Details:\nFrom: {{ $json.emailFrom }}\nSubject: {{ $json.emailSubject }}\nBody: {{ $json.emailBody }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are an email classification assistant. Analyze the email and:\n\n1. Classify into ONE of these categories:\n- JOB_ALERTS: Job posting notifications from LinkedIn Jobs, Indeed, Glassdoor, ZipRecruiter, or other job boards\n- JOB_APPLICATIONS: Application confirmations OR responses from recruiters/companies (subject contains: 'application received', 'thank you for applying', 'we received your application', 'interview', 'next steps', 'update on your application', 'regarding your application')\n- BLACK_WALLET: ANY email mentioning 'Black Wallet' (including Otter.ai meeting recordings)\n- BDPA: ANY email mentioning 'BDPA' (including Otter.ai meeting recordings)\n- GOD_FAITH: Emails about church, Bible studies, devotionals, Christian content, prayer requests, ministry\n- BILLS_BANK_STATEMENTS: Bills, invoices, bank statements, spending statements, financial documents from banks or service providers\n- NEWSLETTERS: Emails with unsubscribe links\n- SOCIAL_MEDIA: Facebook, LinkedIn, Twitter, Instagram notifications\n- SHOPPING: Amazon, eBay, receipts, order confirmations\n- PROMOTIONS: Sales, deals, discounts\n- OTHER: If none of the above match\n\n2. Determine if email requires a reply (contains questions, requests for information, or call to action)\n\n3. If reply needed, generate a professional, contextual draft response that:\n- Is polite and professional\n- Addresses specific questions or requests\n- Is appropriate for the context"
+        }
+      },
+      "id": "f7132982-e9d6-40c8-a2a4-f214ae777d2b",
+      "name": "Classify Email & Check Reply Needed",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        496,
+        1648
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4o-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "id": "4714a0fd-b34f-4a6f-8c16-638f0a73fc4b",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        496,
+        1984
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "f8lODXnlyz5PZnT3",
+          "name": "n8n free OpenAI API credits"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"category\": {\n      \"type\": \"string\",\n      \"enum\": [\"JOB_ALERTS\", \"JOB_APPLICATIONS\", \"BLACK_WALLET\", \"BDPA\", \"GOD_FAITH\", \"BILLS_BANK_STATEMENTS\", \"NEWSLETTERS\", \"SOCIAL_MEDIA\", \"SHOPPING\", \"PROMOTIONS\", \"OTHER\"],\n      \"description\": \"The folder category for this email\"\n    },\n    \"requiresReply\": {\n      \"type\": \"boolean\",\n      \"description\": \"Whether this email requires a reply\"\n    },\n    \"draftResponse\": {\n      \"type\": \"string\",\n      \"description\": \"The draft response text if reply is needed, empty string otherwise\"\n    },\n    \"reasoning\": {\n      \"type\": \"string\",\n      \"description\": \"Brief explanation of classification decision\"\n    }\n  },\n  \"required\": [\"category\", \"requiresReply\", \"draftResponse\", \"reasoning\"]\n}"
+      },
+      "id": "3f39f25d-0029-4e1c-bd59-a7644649cef5",
+      "name": "Structured Output Parser",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        656,
+        1984
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.output.category }}",
+                    "rightValue": "JOB_ALERTS",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "091abfbd-e040-4cb1-8967-d97b256fd15f"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Job Alerts"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.output.category }}",
+                    "rightValue": "JOB_APPLICATIONS",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "274363a3-72d9-4e3c-b4c3-9e592da77d72"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Job Applications & Feedback"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.output.category }}",
+                    "rightValue": "BLACK_WALLET",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "d2af930d-3ea0-4c5d-92d8-e59aca7d7aa5"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Black Wallet"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.output.category }}",
+                    "rightValue": "BDPA",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "2e6dccb2-56b6-4049-9d23-4406f0ea3f5e"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "BDPA"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.output.category }}",
+                    "rightValue": "GOD_FAITH",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "2feb302e-a925-42b8-aa7c-d4f6abe0777c"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "God/Faith"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.output.category }}",
+                    "rightValue": "BILLS_BANK_STATEMENTS",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "a1f23a72-ceaf-4683-8fa9-202936530266"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Bills & Bank Statements"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.output.category }}",
+                    "rightValue": "NEWSLETTERS",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "7bad286b-b419-4f5f-b80a-fbdb1c893293"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Newsletters"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.output.category }}",
+                    "rightValue": "SOCIAL_MEDIA",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "4cc80234-343b-499f-b8b8-0e927f7d4ae5"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Social Media"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.output.category }}",
+                    "rightValue": "SHOPPING",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "d81e6f3e-3f1a-4945-ba3d-ead24476fbda"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Shopping"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.output.category }}",
+                    "rightValue": "PROMOTIONS",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "f74f6cf0-0f0a-48ae-afa7-4f411650e965"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Promotions"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a580fc24-6554-41b1-bc15-01f83d781834",
+      "name": "Route by Folder Category",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        864,
+        1104
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "id-1",
+              "leftValue": "={{ $json.output.requiresReply }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "131ebfeb-6428-433c-8bc0-e698c0709497",
+      "name": "Check If Reply Needed",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1072,
+        2288
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "draftMessage",
+              "value": "={{ $json.output.draftResponse }}",
+              "type": "string"
+            },
+            {
+              "id": "id-2",
+              "name": "threadId",
+              "value": "={{ $('Workflow Configuration').item.json.threadId }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6b30c12c-a52e-4ae5-a2fc-2a1cff9493a4",
+      "name": "Prepare Draft Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1280,
+        2272
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "draft",
+        "subject": "=Re: {{ $('Workflow Configuration').item.json.emailSubject }}",
+        "message": "={{ $json.draftMessage }}",
+        "options": {
+          "threadId": "={{ $json.threadId }}"
+        }
+      },
+      "id": "07f8928a-a5a1-4f89-8407-7a4abdf6c185",
+      "name": "Create Draft Reply",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1520,
+        2272
+      ],
+      "webhookId": "213e328c-6054-4122-bcc5-3e72b02153b1",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "5xqoWy7jXH31PDlc",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $('Workflow Configuration').item.json.emailId }}",
+        "labelIds": [
+          "Label_4760600134380829697"
+        ]
+      },
+      "id": "46b7a141-0d6e-4352-8fa8-20e38b7c00ad",
+      "name": "Bills & Bank Statements",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1280,
+        448
+      ],
+      "webhookId": "9c97aa6f-2f13-4f75-a612-fdf1fd3f0653",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "5xqoWy7jXH31PDlc",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $('Workflow Configuration').item.json.emailId }}",
+        "labelIds": [
+          "Label_8833261504109137410"
+        ]
+      },
+      "id": "b3c8fd3a-3ecf-4261-ba98-f796e2006daf",
+      "name": "Job Alerts",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1280,
+        640
+      ],
+      "webhookId": "d91cd0bb-67b1-4fe6-aac3-0b1604b250b9",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "5xqoWy7jXH31PDlc",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $('Workflow Configuration').item.json.emailId }}",
+        "labelIds": [
+          "Label_944913571055596506"
+        ]
+      },
+      "id": "f86801c6-8da8-42af-aed9-843995e6a029",
+      "name": "Job Applications & Feedback",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1280,
+        816
+      ],
+      "webhookId": "1e01c645-39b2-45a3-a65f-6ada8977e681",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "5xqoWy7jXH31PDlc",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $('Workflow Configuration').item.json.emailId }}",
+        "labelIds": [
+          "Label_2473030300498931852"
+        ]
+      },
+      "id": "02ec15d1-ff05-4839-84c4-481c787c7328",
+      "name": "Black Wallet",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1280,
+        1024
+      ],
+      "webhookId": "f61a9c8c-9582-4292-8f55-06eb085f677f",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "5xqoWy7jXH31PDlc",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $('Workflow Configuration').item.json.emailId }}",
+        "labelIds": [
+          "Label_6889754989977374756"
+        ]
+      },
+      "id": "7a332011-b216-4037-8e79-771040613eb7",
+      "name": "BDPA",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1280,
+        1200
+      ],
+      "webhookId": "339892d7-43f4-4b9b-8813-f6c76b2ffbf7",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "5xqoWy7jXH31PDlc",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $('Workflow Configuration').item.json.emailId }}",
+        "labelIds": [
+          "Label_856645328693143006"
+        ]
+      },
+      "id": "97a8a47a-ad94-4afd-9d78-a49bcafb8dd9",
+      "name": "God/Faith",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1280,
+        1360
+      ],
+      "webhookId": "2e8e54bb-693f-405c-9619-9cc39fbbe72e",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "5xqoWy7jXH31PDlc",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $('Workflow Configuration').item.json.emailId }}",
+        "labelIds": [
+          "Label_7680204768933948312"
+        ]
+      },
+      "id": "95cea7c5-9d5d-4ad5-8de9-9f2bfddf7311",
+      "name": "Newsletters",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1280,
+        1536
+      ],
+      "webhookId": "3c6c3f84-2bac-464a-b334-f427b5714d9f",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "5xqoWy7jXH31PDlc",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $('Workflow Configuration').item.json.emailId }}",
+        "labelIds": [
+          "Label_2457237358446938226"
+        ]
+      },
+      "id": "1fa27103-f45a-41dd-bd2b-6bedd919cd70",
+      "name": "Social Media",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1280,
+        1712
+      ],
+      "webhookId": "bf885337-8398-4aa5-a255-61f30182e923",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "5xqoWy7jXH31PDlc",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $('Workflow Configuration').item.json.emailId }}",
+        "labelIds": [
+          "Label_9145498747606034008"
+        ]
+      },
+      "id": "d955abab-6477-4b86-90b9-1aca86d41b8a",
+      "name": "Shopping",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1280,
+        1888
+      ],
+      "webhookId": "81bf8120-62f5-4c42-b4c2-9e328748ca7c",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "5xqoWy7jXH31PDlc",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $('Workflow Configuration').item.json.emailId }}",
+        "labelIds": [
+          "Label_3389355414825570755"
+        ]
+      },
+      "id": "eb139ff7-683d-45f5-8729-ed441bbbead7",
+      "name": "Promotions",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1280,
+        2080
+      ],
+      "webhookId": "804e884e-95dc-45f4-a5ba-4c62e4edeb64",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "5xqoWy7jXH31PDlc",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "EMAIL AUTOMATION WORKFLOW\n\nThis workflow automatically organizes incoming Gmail messages:\n\nJOB SEARCH:\n- Job Alerts → Job posting notifications\n- Job Applications & Feedback → Application confirmations and recruiter responses\n\nORGANIZATIONS:\n- Black Wallet → Any mention of Black Wallet (including Otter.ai recordings)\n- BDPA → Any mention of BDPA (including Otter.ai recordings)\n\nOTHER:\n- God/Faith → Church, Bible studies, devotionals\n- Newsletters, Social Media, Shopping, Promotions\n\nSMART DRAFTS:\nEmails requiring a reply get an AI-generated draft response saved in Gmail drafts\n\nRuns automatically on new emails.",
+        "height": 496,
+        "width": 864
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -240,
+        992
+      ],
+      "id": "70bfe31a-0622-4299-ba3d-d339a8d3058c",
+      "name": "Sticky Note"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "New Email Arrives": {
+      "main": [
+        [
+          {
+            "node": "Workflow Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Workflow Configuration": {
+      "main": [
+        [
+          {
+            "node": "Classify Email & Check Reply Needed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Classify Email & Check Reply Needed",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Classify Email & Check Reply Needed",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify Email & Check Reply Needed": {
+      "main": [
+        [
+          {
+            "node": "Route by Folder Category",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Check If Reply Needed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Folder Category": {
+      "main": [
+        [
+          {
+            "node": "Job Alerts",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Job Applications & Feedback",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Black Wallet",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "BDPA",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "God/Faith",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Newsletters",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Social Media",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Shopping",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Promotions",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bills & Bank Statements",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check If Reply Needed": {
+      "main": [
+        [
+          {
+            "node": "Prepare Draft Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Draft Response": {
+      "main": [
+        [
+          {
+            "node": "Create Draft Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Draft Reply": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "ff2e1119-a61f-4dee-a369-ae27b446082b",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "b76c6c7997f18160980320f2d1726fea1717c73dacefc28de195959eddfb404b"
+  },
+  "id": "oGrN2cQRiTUnTDMAYolY0",
+  "tags": []
+}
